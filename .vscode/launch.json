@@ -1,0 +1,22 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run server (auto-reload)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": ["myapp_server.app:app", "--reload", "--port", "6290"],
+            "cwd": "${workspaceFolder}/myapp_server",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "justMyCode": true
+        },
+        {
+            "name": "web (vite dev)",
+            "type": "node-terminal",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/myapp_web",
+            "command": "pnpm dev"
+        }
+    ]
+}

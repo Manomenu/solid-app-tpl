@@ -1,0 +1,26 @@
+{
+    "venvPath": ".",
+    "venv": ".venv",
+    "pythonVersion": "3.12",
+    "typeCheckingMode": "strict",
+    "include": ["myapp_server", "scripts/.internal"],
+    "executionEnvironments": [
+        { "root": "myapp_server" },
+        { "root": "scripts/.internal", "extraPaths": ["myapp_server"] }
+    ],
+    "exclude": [
+        ".git",
+        ".artifacts",
+        "**/.venv",
+        "**/node_modules",
+        "**/__pycache__",
+        "**/.pytest_cache",
+        "**/.ruff_cache",
+        "myapp_web"
+    ],
+    "reportMissingTypeStubs": "error",
+    "reportUnnecessaryTypeIgnoreComment": "error",
+    "reportImplicitOverride": "error",
+    "reportPropertyTypeMismatch": "error",
+    "reportUninitializedInstanceVariable": "error"
+}
