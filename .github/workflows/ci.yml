@@ -20,7 +20,8 @@ permissions:
   contents: read
 
 env:
-  # The same interpreter the runtime image ships, so the tests run on what production runs.
+  # The same interpreter the runtime image ships (and .python-version pins locally), so the
+  # tests run on what production runs.
   UV_PYTHON: "3.14"
 
 jobs:
@@ -44,6 +45,17 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          # gitleaks (in check.sh) scans the whole history: a secret removed later is still published.
+          fetch-depth: 0
+
+      # Pinned like every tool here; the same version the platform repo uses.
+      - name: Install gitleaks
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz" |
+            tar -xz -C "$HOME/.local/bin" gitleaks
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - uses: astral-sh/setup-uv@v6
         with:

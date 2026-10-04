@@ -66,12 +66,20 @@ helm_chart() {
 
 compose_file() {
     # The local stack (compose.yaml) must at least parse and resolve; `just up` builds it.
-    (cd "$ROOT" && podman compose config --quiet)
+    # podman on the laptop, docker on the CI runner — the same file either way.
+    (cd "$ROOT" && "${COMPOSE[@]}" config --quiet)
 }
 
 shell_scripts() {
     # Warnings and up: the info level flags every function run_step calls by name.
-    (cd "$ROOT" && find scripts -name "*.sh" -exec shellcheck -S warning {} +)
+    (cd "$ROOT" && { find scripts -name "*.sh"; echo .githooks/pre-commit; } | xargs shellcheck -S warning)
+}
+
+secrets_in_git() {
+    # The whole history (a secret deleted in a later commit is still published), then what is
+    # changed but not committed yet. The pre-commit hook (.githooks/) checks each commit too.
+    (cd "$ROOT" && gitleaks git . --no-banner --redact --log-level warn &&
+        gitleaks git . --pre-commit --no-banner --redact --log-level warn)
 }
 
 local_database() {
@@ -115,10 +123,21 @@ if command -v shellcheck >/dev/null 2>&1; then
 else
     REPORT+=("SKIP  shell scripts — shellcheck not installed")
 fi
+if command -v gitleaks >/dev/null 2>&1; then
+    run_step "secrets in git (gitleaks)" secrets_in_git
+else
+    REPORT+=("SKIP  secrets in git — gitleaks not installed (CI always runs it)")
+fi
+COMPOSE=()
 if command -v podman >/dev/null 2>&1 && podman compose version >/dev/null 2>&1; then
+    COMPOSE=(podman compose)
+elif command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+    COMPOSE=(docker compose)
+fi
+if [ ${#COMPOSE[@]} -gt 0 ]; then
     run_step "compose stack (compose config)" compose_file
 else
-    REPORT+=("SKIP  compose stack — podman compose not installed")
+    REPORT+=("SKIP  compose stack — neither podman compose nor docker compose")
 fi
 
 echo

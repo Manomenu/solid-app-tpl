@@ -5,6 +5,9 @@
 .secrets/
 *.pem
 *.key
+*.p12
+id_rsa*
+id_ed25519*
 
 # Python
 **/.venv/

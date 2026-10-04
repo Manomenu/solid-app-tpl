@@ -21,6 +21,7 @@ OFFSET="${2:-1}"
 [[ "$OFFSET" =~ ^[0-8]$ ]] || { echo "port-offset must be 0–8" >&2; exit 2; }
 [ -d "$ROOT/myapp_server" ] || { echo "already initialised (no myapp_server/)" >&2; exit 1; }
 
+
 cd "$ROOT"
 DASHED="${NAME//_/-}"
 
@@ -49,6 +50,8 @@ rm -rf .venv "${NAME}_web/node_modules"
 uv lock -q && uv sync -q
 (cd "${NAME}_web" && pnpm install --silent)
 ./scripts/.internal/api-types.sh >/dev/null
+# The pre-commit hook (gitleaks), when the copy already is a git repo.
+[ -d .git ] && git config core.hooksPath .githooks
 
 # The template's own instructions go with it.
 perl -0pi -e 's/<!-- template:start -->.*?<!-- template:end -->\n?//s' README.md

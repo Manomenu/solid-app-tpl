@@ -20,7 +20,7 @@ repo. This section disappears with `init-project.sh`.
 ## Requirements
 
 `uv`, `pnpm` (via corepack), `just`, `podman` with `podman compose`; for the full gate also
-`helm` and `shellcheck`.
+`helm`, `shellcheck` and `gitleaks`. After cloning: `just sync` (dependencies and the git hooks).
 
 ## Everyday commands
 

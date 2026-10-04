@@ -88,8 +88,9 @@ fmt:
     uvx ruff format .
     cd myapp_web && pnpm exec eslint --fix . && pnpm exec prettier --write --log-level warn .
 
-# Install/refresh Python and web dependencies from the lockfiles
+# Install/refresh Python and web dependencies from the lockfiles, and enable the git hooks
 [group('maintenance')]
 sync:
+    git config core.hooksPath .githooks
     uv sync
     cd myapp_web && pnpm install --frozen-lockfile

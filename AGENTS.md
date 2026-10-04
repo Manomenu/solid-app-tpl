@@ -66,6 +66,7 @@ every moving part is a part someone has to keep alive.
 | `scripts/.internal/` | everything the gate, CI and `just` run (section 10) |
 | `.github/workflows/ci.yml` | CI: the gate, the browser tests, then the images |
 | `.artifacts/` | everything generated (e2e reports, renders); outside git and the images |
+| `.editorconfig`, `.gitattributes`, `.python-version` | the shared standards: UTF-8 and LF everywhere, binaries never diffed as text, lockfiles and `openapi.d.ts` marked generated, Python 3.14 locally as in the image and CI. A new binary or generated file type gets its line in `.gitattributes` |
 
 ## 2. Three ways to run it — all three always work
 
@@ -112,7 +113,8 @@ report and exits non-zero on any failure.
 | knip | dead code on the web side: unused files, exports and dependencies. Every repo with a TypeScript frontend runs it; an `ignore` in `knip.json` needs a reason next to it |
 | API types | `myapp_web/src/api/openapi.d.ts` matches the server's OpenAPI (`just api-types`) |
 | helm | the chart lints and renders |
-| shellcheck | the scripts |
+| shellcheck | the scripts and the git hooks |
+| gitleaks | no secret anywhere in the git history, nor in uncommitted changes. The `.githooks/pre-commit` hook runs it on every commit too (enabled by `just sync`); CI installs a pinned version, so there it never skips |
 | compose | `compose.yaml` resolves |
 
 **Browser tests** are separate: `./scripts/.internal/e2e.sh` (`just e2e`) runs Playwright
@@ -291,7 +293,9 @@ Panel.e2e.ts              └ Panel.e2e.ts
 ## 7. Secrets
 
 **No secret value ever enters this repo** — not in code, not in `.env.example`, not in
-`values.yaml`, not in a test. `.gitignore` keeps `.env`, `.secrets/` and key files out.
+`values.yaml`, not in a test. `.gitignore` keeps `.env`, `.secrets/` and key files out;
+gitleaks checks every commit (the pre-commit hook) and the whole history (the gate). A hit is
+never silenced with an allowlist entry for a real value — remove the value and rotate it.
 
 - **On a laptop:** development values (a test API key, a local password) go in `.env` — at
   the root or in a project directory — which is gitignored. `.env.example` documents each
