@@ -24,6 +24,14 @@ wait_ready() {
 case "${1:-}" in
     up)
         if podman container exists "$NAME"; then
+            # A container keeps the image it was created from; after a change of IMAGE the old
+            # one would start silently (e.g. without an extension) and fail the migrations instead.
+            # IDs, not names: podman stores a digest reference in its own spelling. An IMAGE not
+            # pulled yet has no ID here, which counts as a change too.
+            if [ "$(podman container inspect --format '{{.Image}}' "$NAME")" != "$(podman image inspect --format '{{.Id}}' "$IMAGE" 2>/dev/null)" ]; then
+                echo "$NAME runs another image than $IMAGE — \`just db reset\`, then \`just db up\`" >&2
+                exit 1
+            fi
             podman start "$NAME" >/dev/null
         else
             # Published on the loopback only: the password is a development one.
