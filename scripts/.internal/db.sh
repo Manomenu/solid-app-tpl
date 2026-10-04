@@ -14,7 +14,9 @@ DB=myapp
 
 wait_ready() {
     for _ in $(seq 1 30); do
-        podman exec "$NAME" pg_isready -q -U "$USER" -d "$DB" && return 0
+        # Over TCP: on a fresh volume the image first runs a temporary, socket-only server for
+        # its init scripts, and a socket check would call that one ready.
+        podman exec "$NAME" pg_isready -q -h 127.0.0.1 -U "$USER" -d "$DB" && return 0
         sleep 1
     done
     echo "postgres did not become ready in 30 s — see: just db logs" >&2
