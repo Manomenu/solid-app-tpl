@@ -112,15 +112,17 @@ report and exits non-zero on any failure.
 | vitest | web unit tests (`<name>.test.ts`) |
 | knip | dead code on the web side: unused files, exports and dependencies. Every repo with a TypeScript frontend runs it; an `ignore` in `knip.json` needs a reason next to it |
 | API types | `myapp_web/src/api/openapi.d.ts` matches the server's OpenAPI (`just api-types`) |
-| helm | the chart lints and renders |
+| helm | the chart lints and renders, and every annotation and label name fits Kubernetes' 63-character limit after the slash (the API server would refuse it only at deployment) |
 | shellcheck | the scripts and the git hooks |
 | gitleaks | no secret anywhere in the git history, nor in uncommitted changes. The `.githooks/pre-commit` hook runs it on every commit too (enabled by `just sync`); CI installs a pinned version, so there it never skips |
 | compose | `compose.yaml` resolves |
 
 **Browser tests** are separate: `./scripts/.internal/e2e.sh` (`just e2e`) runs Playwright
 against a real server and an empty database of its own, on ports apart from the ones you
-develop on. **CI** runs three jobs: `test` (the gate), `e2e`, and `build`, which builds the
-images only when both are green and publishes them only from `master`.
+develop on. A test that fails in CI is retried once, only so the report tells a steady failure
+from a flaky one; passing on the retry still fails the job (`failOnFlakyTests`) — flaky is a
+bug, in the test or in the app. **CI** runs three jobs: `test` (the gate), `e2e`, and `build`,
+which builds the images only when both are green and publishes them only from `master`.
 
 **After deploy**, Argo runs `deploy/chart/templates/smoke-test.yaml` (a PostSync Job with
 curl): a handful of read-only requests through the real Services, the way traffic arrives
@@ -138,7 +140,10 @@ Never weaken a step to make a change pass — fix the change.
 Every kind of check the repo has applies to new code too. Before calling a feature done, go
 through the list and add what fits — or say in the change why something does not apply:
 
-- **Types** strict on both sides; no `Any`/`unknown` escape hatches without a reason.
+- **Types** strict on both sides; no `Any`/`unknown` escape hatches without a reason. A closed
+  set of values is a type of its own — a `StrEnum` on the server (its values are what the
+  database and the API carry), a union of string literals on the web — never a bare `str`
+  with the allowed values in a comment.
 - **Formatting:** ruff format on the server, Prettier on the web — run `just fmt` before the gate; never hand-format against them or add files to `.prettierignore` to dodge them.
 - **Unit tests** for every module with rules: `myapp_server/tests/` mirrors the package on
   the server, `<name>.test.ts` sits beside the file on the web.
@@ -149,6 +154,23 @@ through the list and add what fits — or say in the change why something does n
 - **Database:** schema changes go into a new numbered migration, never an edited one; the
   queries get tests against the real PostgreSQL.
 - **API:** after changing a model the API exposes, regenerate `openapi.d.ts` (`just api-types`).
+- **An outside service** (an API, a public dataset, a geocoder — anything not ours): the gate
+  tests the code against a recorded answer, but the service can change its answer without a commit
+  here. So the first feature that calls one brings, in the same change:
+  - **a live test** — the real call, marked `@pytest.mark.live` and left out of the gate
+    (`addopts = ["-m", "not live"]`), run by `scripts/.internal/live-check.sh`;
+  - **a daily workflow** (`.github/workflows/live.yml`: a cron and `workflow_dispatch`) that runs it
+    and, when red, posts to the project's Discord alerts channel through a repo secret the platform
+    repo's `setup.sh` sets;
+  - **a failure that degrades, not breaks:** reading the answer counts as part of the call — a
+    missing field or a new shape is handled like the service being down (keep the last good data,
+    say it may be old), and nothing stored is replaced until the new answer has been read whole.
+
+  `grzyby-mcp` is the reference — read it in `~/repos/grzyby-mcp/`, or at
+  https://github.com/Manomenu/grzyby-mcp when it is not on this machine:
+  `grzyby_server/tests/live/`, `.github/workflows/live.yml`,
+  `grzyby_server/grzyby_server/lasy/zakazy.py`. Its daily run caught a public dataset dropping
+  a field the day it happened.
 - **Deployment:** compose and the chart learn about the new service or setting (section 2).
 - **Smoke test** (`deploy/chart/templates/smoke-test.yaml`): add a line when the feature
   brings something that can break only on the cluster and can be checked without logging
@@ -206,6 +228,14 @@ A change to one feature should touch one place on each side.
 - **Server:** a feature with more than one concern is a package (`notes/`: `model.py` for
   what the API sends and receives, `store.py` for the SQL, `api.py` for the routes); a single
   concern stays one module (`db.py`). Its router is included in `app.py`.
+- **Server data classes — pydantic at the boundary, dataclass inside.** A pydantic `BaseModel`
+  is for data that crosses the process boundary: what the API or an MCP tool sends and receives
+  (it becomes their schema) and settings. Its fields are a contract with someone outside —
+  renaming one breaks a client — and input from outside deserves validation. A frozen
+  `@dataclass` is for values that live only inside the server: a row from our own SQL, an
+  intermediate result. They change freely, and their types are already checked by pyright;
+  pydantic there would only validate twice and quietly coerce a bug (`"67"` into `67`) instead
+  of failing. So the kind of class tells a reader whether changing it changes the API.
 - **Web:** one folder per feature under `src/`, holding its components, hooks, logic and its
   HTTP calls (`<feature>/api.ts`, typed from `api/openapi.d.ts` — no hand-written copies of
   server models). `api/` is the only shared folder: HTTP plumbing.

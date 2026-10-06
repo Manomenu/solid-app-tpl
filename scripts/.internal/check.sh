@@ -61,7 +61,12 @@ helm_chart() {
     # renders it. The tag is made up: this checks the shape, not whether the image exists.
     cd "$ROOT"
     helm lint deploy/chart --set image.tag=sha-lint --quiet
-    helm template lint-check deploy/chart --set image.tag=sha-lint >/dev/null
+    # Kubernetes allows 63 characters in an annotation or label name after the prefix's slash.
+    # A longer one renders, lints and passes schemas, and is refused only by the API server —
+    # at deployment time.
+    helm template lint-check deploy/chart --set image.tag=sha-lint |
+        grep -oE '^[[:space:]]+[a-z0-9.-]+\.[a-z]+/[A-Za-z0-9._-]+:' | sed -E 's/^[[:space:]]+//; s/:$//' |
+        awk -F/ 'length($2) > 63 { print "  name too long (" length($2) " > 63 after the slash): " $0; bad = 1 } END { exit bad }'
 }
 
 compose_file() {

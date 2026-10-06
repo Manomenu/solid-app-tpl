@@ -6,6 +6,7 @@ import pytest
 from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
+from myapp_server import db
 from myapp_server.db import MigrationChangedError, checksum, migrate
 
 
@@ -67,3 +68,17 @@ def test_a_failing_migration_leaves_nothing_behind(scratch: Connection, tmp_path
 
     with pytest.raises(psycopg.errors.UndefinedObject):
         migrate(scratch, tmp_path)
+
+
+def test_the_pool_replaces_a_connection_the_database_killed(database_url: str) -> None:
+    # What a database restart (e.g. a new image) does to every idle connection in the pool. The
+    # server's pool must hand out a working one, not the dead one — or the next request is a 500.
+    with db.new_pool(database_url, max_size=1) as pool:
+        with pool.connection() as conn:
+            victim = conn.info.backend_pid
+        with psycopg.connect(database_url, autocommit=True) as admin:
+            admin.execute("SELECT pg_terminate_backend(%s)", (victim,))
+
+        with pool.connection() as conn:
+            assert conn.execute("SELECT 1").fetchone() == (1,)
+            assert conn.info.backend_pid != victim
