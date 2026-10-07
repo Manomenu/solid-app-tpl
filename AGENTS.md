@@ -159,18 +159,22 @@ through the list and add what fits — or say in the change why something does n
   here. So the first feature that calls one brings, in the same change:
   - **a live test** — the real call, marked `@pytest.mark.live` and left out of the gate
     (`addopts = ["-m", "not live"]`), run by `scripts/.internal/live-check.sh`;
-  - **a daily workflow** (`.github/workflows/live.yml`: a cron and `workflow_dispatch`) that runs it
-    and, when red, posts to the project's Discord alerts channel through a repo secret the platform
-    repo's `setup.sh` sets;
+  - **a daily check from production's network** — a CronJob in the chart, the server's image with
+    another command, asking the real services through the production code and database inside a
+    transaction it rolls back; when something is wrong it posts to the project's Discord alerts
+    channel (a webhook in a Secret the platform repo's `setup.sh` creates). Not a GitHub workflow:
+    a service can block GitHub's runners while answering production, and then the alarm is about
+    GitHub. Keep it light — once a day, a small area, no retries — within each service's terms;
   - **a failure that degrades, not breaks:** reading the answer counts as part of the call — a
     missing field or a new shape is handled like the service being down (keep the last good data,
     say it may be old), and nothing stored is replaced until the new answer has been read whole.
 
   `grzyby-mcp` is the reference — read it in `~/repos/grzyby-mcp/`, or at
   https://github.com/Manomenu/grzyby-mcp when it is not on this machine:
-  `grzyby_server/tests/live/`, `.github/workflows/live.yml`,
-  `grzyby_server/grzyby_server/lasy/zakazy.py`. Its daily run caught a public dataset dropping
-  a field the day it happened.
+  `grzyby_server/grzyby_server/miejsca/live.py` (the check), `deploy/chart/templates/live-check.yaml`,
+  `grzyby_server/tests/live/`, `grzyby_server/grzyby_server/lasy/zakazy.py`. Its daily check caught
+  a public dataset dropping a field the day it happened — and, run from GitHub, was then blocked
+  there, which is why it moved to the cluster.
 - **Deployment:** compose and the chart learn about the new service or setting (section 2).
 - **Smoke test** (`deploy/chart/templates/smoke-test.yaml`): add a line when the feature
   brings something that can break only on the cluster and can be checked without logging
