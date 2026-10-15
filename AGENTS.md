@@ -469,3 +469,15 @@ Transform tasks into verifiable goals:
 
 For multi-step tasks, state a brief plan with a check per step. Simplicity rules are in
 section 0.
+
+### 11.4 Delegate well-defined work to a cheaper model
+
+**Larger, well-defined tasks go to a subagent on Sonnet** — to save tokens. Well defined
+means: a clear goal, the files it touches are known, and a check says when it is done
+("port X to Y with `check.sh` green", "write the tests for Z", "rename A to B everywhere").
+
+- The prompt carries everything the subagent needs: the goal, the files, the rules of this
+  file that apply, and the acceptance check. It starts with no context of its own.
+- The main agent keeps what needs judgment: design decisions, unclear requirements, small
+  edits (spawning costs more than doing them), and the review of the subagent's result
+  against the acceptance check — without redoing the delegated work.
