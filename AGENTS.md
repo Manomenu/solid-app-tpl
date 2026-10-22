@@ -23,12 +23,22 @@ too, in the same task:**
 In the template itself this section applies the other way round: a change here is a change
 every future project inherits, so it must stay generic and fully green.
 
-## Git: committing is the owner's job
+## Git: commits go through suwgit, and only through it
 
-**Agents never commit, amend, reset, rebase or push** — nor stage files (`git add`,
-`git mv`). Leave every change in the working tree for the owner to review and commit, even
-when it is finished and all checks pass. The only exception is the owner asking for it in so
-many words ("commit and deploy"), and it covers that task only.
+**Agents never run `git commit`, `git push`, amend, reset, rebase or stash** — nor stage
+files by hand (`git add`, `git mv`). When a change is finished **and `just check` is green**,
+the agent commits and pushes it with one command:
+
+```sh
+suwgit push --b2b me --project "<Project>"
+```
+
+`<Project>` is the project's name for the owner's work reports, stated in this file's
+project section (the template itself has none: changes to it stay in the working tree for
+the owner). suwgit writes the message with the owner's local model, records the work as B2B
+for the owner, and pushes the current branch. Work happens on a feature branch, never on
+`master`. A change with a red gate is not committed — it stays in the working tree, and the
+summary says why. Anything beyond this (merging, deploying, a force push) is the owner's.
 
 **A repo without git** (a fresh copy of the template, a new project folder) is initialised
 with `master` as the main branch — `git init -b master` — never `main`: CI publishes images

@@ -14,4 +14,11 @@ describe("toError", () => {
 
         expect((await toError(response)).message).toBe("502 Bad Gateway");
     });
+
+    it("turns a validation error into field: message", async () => {
+        const detail = [{ loc: ["body", "title"], msg: "Value error, must not be empty" }];
+        const response = new Response(JSON.stringify({ detail }), { status: 422 });
+
+        expect((await toError(response)).message).toBe("title: must not be empty");
+    });
 });

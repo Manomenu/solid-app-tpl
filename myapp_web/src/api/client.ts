@@ -6,11 +6,27 @@
 
 const BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
+/**
+ * The sentence a `detail` carries. Domain refusals answer `{"detail": "a sentence"}`; pydantic
+ * validation (422) answers `{"detail": [{loc, msg}, ...]}`, which becomes "field: message" so the
+ * user reads the actual problem instead of "Unprocessable Content".
+ */
+function describeDetail(detail: unknown): string | null {
+    if (typeof detail === "string") return detail;
+    if (!Array.isArray(detail) || detail.length === 0) return null;
+    return (detail as { loc?: unknown; msg?: unknown }[])
+        .map((item) => {
+            const field = Array.isArray(item.loc) ? (item.loc as unknown[]).at(-1) : undefined;
+            const message = (typeof item.msg === "string" ? item.msg : "invalid value").replace(/^Value error, /, "");
+            return typeof field === "string" && field !== "body" ? `${field}: ${message}` : message;
+        })
+        .join("; ");
+}
+
 /** The error a failed response carries: the server's `detail` when it sent one. */
 export async function toError(response: Response): Promise<Error> {
     const body = (await response.json().catch(() => null)) as { detail?: unknown } | null;
-    const detail = body?.detail;
-    return new Error(typeof detail === "string" ? detail : `${response.status} ${response.statusText}`);
+    return new Error(describeDetail(body?.detail) ?? `${response.status} ${response.statusText}`);
 }
 
 /** A JSON call to the API: the parsed body, or the error the response carries. */
